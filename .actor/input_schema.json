@@ -1,0 +1,22 @@
+{
+    "title": "Coinglass Heatmap Input",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "coin": {
+            "title": "Coin Symbol",
+            "type": "string",
+            "description": "Cryptocurrency symbol (e.g., BTC, ETH, SOL)",
+            "default": "BTC",
+            "editor": "textfield"
+        },
+        "headless": {
+            "title": "Headless Mode",
+            "type": "boolean",
+            "description": "Run browser in headless mode",
+            "default": true,
+            "editor": "checkbox"
+        }
+    },
+    "required": []
+}

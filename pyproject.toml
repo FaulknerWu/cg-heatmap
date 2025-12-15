@@ -1,10 +1,10 @@
 [project]
-name = "cg-decryptor"
+name = "cg-heatmap"
 version = "0.1.0"
-description = "Add your description here"
+description = "Coinglass Liquidation Heatmap Screenshot Actor"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
-    "pycryptodome>=3.23.0",
+    "apify>=2.0.0",
     "playwright>=1.49.0",
 ]
