@@ -28,7 +28,7 @@ async def screenshot_heatmap(
         browser = await p.chromium.launch(headless=headless)
         context = await browser.new_context(
             viewport={"width": 2560, "height": 1440},
-            device_scale_factor=2,  # 2x 高清
+            device_scale_factor=2,
         )
         page = await context.new_page()
 
@@ -116,6 +116,7 @@ async def main() -> None:
                 "timestamp": timestamp,
             }
             await Actor.set_value("OUTPUT", output)
+            await Actor.push_data(output)
             Actor.log.info(f"完成: {public_url}")
         else:
             output = {
@@ -124,4 +125,5 @@ async def main() -> None:
                 "error": "截图失败",
             }
             await Actor.set_value("OUTPUT", output)
+            await Actor.push_data(output)
             Actor.log.error("截图失败")
