@@ -10,14 +10,18 @@ from playwright.async_api import async_playwright
 
 async def screenshot_heatmap(
     coin: str = "BTC",
+    exchange: str = "Binance",
     headless: bool = True,
+    wait_timeout: int = 10000,
 ) -> bytes | None:
     """
     截取 Coinglass 清算热力图
 
     Args:
         coin: 币种，如 BTC, ETH
+        exchange: 交易所，如 Binance, OKX
         headless: 是否无头模式
+        wait_timeout: 等待超时时间(ms)
 
     Returns:
         截图二进制数据，失败返回 None
@@ -33,43 +37,39 @@ async def screenshot_heatmap(
         page = await context.new_page()
 
         Actor.log.info(f"正在打开页面: {url}")
-        await page.goto(url, wait_until="networkidle")
+        await page.goto(url, wait_until="domcontentloaded")
 
-        Actor.log.info("等待热力图加载...")
-        await page.wait_for_timeout(5000)
+        # 智能等待: 等待 canvas 元素出现并渲染完成
+        Actor.log.info("等待热力图 canvas 加载...")
+        try:
+            canvas = page.locator("canvas").first
+            await canvas.wait_for(state="visible", timeout=wait_timeout)
+            # 短暂等待确保 canvas 完成渲染
+            await page.wait_for_timeout(500)
+        except Exception as e:
+            Actor.log.warning(f"等待 canvas 超时: {e}")
 
-        # 尝试定位热力图 canvas 元素
         screenshot_data = None
 
-        # 可能的图表容器选择器
-        chart_selectors = [
-            'canvas',  # 热力图通常是 canvas
-            '[class*="chart"]',
-            '[class*="heatmap"]',
-            'div:has(canvas)',
-        ]
+        # 截取 canvas 元素
+        try:
+            canvas = page.locator("canvas").first
+            if await canvas.is_visible():
+                box = await canvas.bounding_box()
+                if box and box["width"] > 500 and box["height"] > 300:
+                    screenshot_data = await canvas.screenshot()
+                    Actor.log.info(f"截图成功: {box['width']:.0f}x{box['height']:.0f}")
+        except Exception as e:
+            Actor.log.error(f"截取 canvas 失败: {e}")
 
-        for selector in chart_selectors:
-            try:
-                element = page.locator(selector).first
-                if await element.is_visible(timeout=2000):
-                    box = await element.bounding_box()
-                    if box and box['width'] > 500 and box['height'] > 300:
-                        screenshot_data = await element.screenshot()
-                        Actor.log.info(f"截图成功 (选择器: {selector})")
-                        break
-            except Exception as e:
-                Actor.log.debug(f"选择器 {selector} 失败: {e}")
-                continue
-
-        # 如果没找到合适的元素，截取整个图表区域
+        # 备用: 截取整个图表区域
         if not screenshot_data:
             Actor.log.info("尝试截取整个图表区域...")
             try:
-                chart_container = page.locator('div:has-text("Binance BTC/USDT") >> xpath=..').first
-                if await chart_container.is_visible():
-                    screenshot_data = await chart_container.screenshot()
-                    Actor.log.info("截图成功")
+                container = page.locator(f'div:has-text("{exchange}") >> xpath=ancestor::div[contains(@class, "chart") or contains(@class, "heatmap")]').first
+                if await container.is_visible(timeout=2000):
+                    screenshot_data = await container.screenshot()
+                    Actor.log.info("截图成功 (容器)")
             except Exception as e:
                 Actor.log.error(f"截取容器失败: {e}")
 
@@ -82,14 +82,18 @@ async def main() -> None:
         # 获取输入参数
         actor_input = await Actor.get_input() or {}
         coin = actor_input.get("coin", "BTC")
+        exchange = actor_input.get("exchange", "Binance")
         headless = actor_input.get("headless", True)
+        wait_timeout = actor_input.get("waitTimeout", 10000)
 
         Actor.log.info(f"开始截取 {coin} 清算热力图")
 
         # 执行截图
         screenshot_data = await screenshot_heatmap(
             coin=coin,
+            exchange=exchange,
             headless=headless,
+            wait_timeout=wait_timeout,
         )
 
         if screenshot_data:
@@ -111,6 +115,7 @@ async def main() -> None:
             output = {
                 "success": True,
                 "coin": coin,
+                "exchange": exchange,
                 "filename": filename,
                 "url": public_url,
                 "timestamp": timestamp,
@@ -122,6 +127,7 @@ async def main() -> None:
             output = {
                 "success": False,
                 "coin": coin,
+                "exchange": exchange,
                 "error": "截图失败",
             }
             await Actor.set_value("OUTPUT", output)

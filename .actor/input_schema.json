@@ -10,6 +10,23 @@
             "default": "BTC",
             "editor": "textfield"
         },
+        "exchange": {
+            "title": "Exchange",
+            "type": "string",
+            "description": "Exchange name (e.g., Binance, OKX, Bybit)",
+            "default": "Binance",
+            "enum": ["Binance", "OKX", "Bybit", "Bitget", "dYdX"],
+            "editor": "select"
+        },
+        "waitTimeout": {
+            "title": "Wait Timeout (ms)",
+            "type": "integer",
+            "description": "Maximum time to wait for chart to load",
+            "default": 10000,
+            "minimum": 3000,
+            "maximum": 30000,
+            "editor": "number"
+        },
         "headless": {
             "title": "Headless Mode",
             "type": "boolean",
