@@ -3,7 +3,7 @@
     "name": "coinglass-heatmap",
     "title": "Coinglass Liquidation Heatmap",
     "description": "Screenshot Coinglass liquidation heatmap for cryptocurrency futures",
-    "version": "0.1.0",
+    "version": "0.1",
     "buildTag": "latest",
     "dockerfile": "./Dockerfile",
     "input": "./input_schema.json",
