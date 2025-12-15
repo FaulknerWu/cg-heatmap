@@ -13,19 +13,27 @@
         "exchange": {
             "title": "Exchange",
             "type": "string",
-            "description": "Exchange name (e.g., Binance, OKX, Bybit)",
+            "description": "Exchange name",
             "default": "Binance",
-            "enum": ["Binance", "OKX", "Bybit", "Bitget", "dYdX"],
+            "enum": ["Binance", "OKX", "Bybit", "Bitget", "MEXC", "Gate", "HTX", "Hyperliquid", "BingX", "Deribit", "Bitfinex", "KuCoin", "Bitmex", "Kraken", "Coinbase", "CoinEx", "dYdX", "WhiteBIT", "LBank", "Bitunix", "Crypto.com"],
             "editor": "select"
         },
-        "waitTimeout": {
-            "title": "Wait Timeout (ms)",
-            "type": "integer",
-            "description": "Maximum time to wait for chart to load",
-            "default": 10000,
-            "minimum": 3000,
-            "maximum": 30000,
-            "editor": "number"
+        "quoteCurrency": {
+            "title": "Quote Currency",
+            "type": "string",
+            "description": "Quote currency for the trading pair",
+            "default": "USDT",
+            "enum": ["USDT", "USD", "USDC"],
+            "editor": "select"
+        },
+        "timeRange": {
+            "title": "Time Range",
+            "type": "string",
+            "description": "Time range for the heatmap",
+            "default": "24h",
+            "enum": ["12h", "24h", "48h", "3d", "1w", "2w", "1m", "3m", "6m", "1y"],
+            "enumTitles": ["12 Hours", "24 Hours", "48 Hours", "3 Days", "1 Week", "2 Weeks", "1 Month", "3 Months", "6 Months", "1 Year"],
+            "editor": "select"
         },
         "headless": {
             "title": "Headless Mode",

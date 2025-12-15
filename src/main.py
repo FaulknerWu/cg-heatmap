@@ -25,6 +25,7 @@ TIME_RANGE_MAP = {
 async def screenshot_heatmap(
     coin: str = "BTC",
     exchange: str = "Binance",
+    quote_currency: str = "USDT",
     time_range: str = "24h",
     headless: bool = True,
 ) -> bytes | None:
@@ -34,6 +35,7 @@ async def screenshot_heatmap(
     Args:
         coin: 币种，如 BTC, ETH
         exchange: 交易所，如 Binance, OKX
+        quote_currency: 计价货币，如 USDT, USD, USDC
         time_range: 时间范围，如 12h, 24h, 48h, 3d, 1w, 2w, 1m, 3m, 6m, 1y
         headless: 是否无头模式
 
@@ -73,6 +75,34 @@ async def screenshot_heatmap(
         # 给 canvas 渲染时间
         await page.wait_for_timeout(500)
         Actor.log.info("Canvas 已就绪")
+
+        # 选择交易所/交易对（如果不是默认的 Binance USDT）
+        if exchange != "Binance" or quote_currency != "USDT":
+            # 构建交易对名称，如 "OKX BTC/USDT Perpetual"
+            pair_name = f"{exchange} {coin}/{quote_currency} Perpetual"
+            Actor.log.info(f"选择交易对: {pair_name}")
+            try:
+                # 点击交易对选择器
+                pair_selector = page.get_by_role("combobox", name="Search")
+                await pair_selector.click()
+
+                # 等待下拉列表出现
+                listbox = page.locator("[role='listbox']").filter(has_text="Perpetual")
+                await listbox.wait_for(state="visible", timeout=3000)
+
+                # 选择对应的交易对，同时等待新的 API 请求
+                async with page.expect_response(
+                    lambda r: "liqHeatMap" in r.url and r.status == 200,
+                    timeout=30000,
+                ) as response_info:
+                    option = listbox.get_by_role("option", name=pair_name)
+                    await option.click()
+
+                await response_info.value
+                Actor.log.info(f"已选择: {pair_name}，数据加载完成")
+                await page.wait_for_timeout(500)
+            except Exception as e:
+                Actor.log.warning(f"选择交易对失败: {e}，使用默认 Binance BTC/USDT")
 
         # 选择时间范围（如果不是默认的 24h）
         time_label = TIME_RANGE_MAP.get(time_range)
@@ -143,15 +173,17 @@ async def main() -> None:
         actor_input = await Actor.get_input() or {}
         coin = actor_input.get("coin", "BTC")
         exchange = actor_input.get("exchange", "Binance")
+        quote_currency = actor_input.get("quoteCurrency", "USDT")
         time_range = actor_input.get("timeRange", "24h")
         headless = actor_input.get("headless", True)
 
-        Actor.log.info(f"开始截取 {coin} 清算热力图 (时间范围: {time_range})")
+        Actor.log.info(f"开始截取 {exchange} {coin}/{quote_currency} 清算热力图 (时间范围: {time_range})")
 
         # 执行截图
         screenshot_data = await screenshot_heatmap(
             coin=coin,
             exchange=exchange,
+            quote_currency=quote_currency,
             time_range=time_range,
             headless=headless,
         )
@@ -159,7 +191,7 @@ async def main() -> None:
         if screenshot_data:
             # 保存到 Key-Value Store
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{coin}_heatmap_{time_range}_{timestamp}.png"
+            filename = f"{exchange}_{coin}{quote_currency}_{time_range}_{timestamp}.png"
 
             await Actor.set_value(
                 key=filename,
@@ -176,6 +208,7 @@ async def main() -> None:
                 "success": True,
                 "coin": coin,
                 "exchange": exchange,
+                "quoteCurrency": quote_currency,
                 "timeRange": time_range,
                 "filename": filename,
                 "url": public_url,
@@ -189,6 +222,7 @@ async def main() -> None:
                 "success": False,
                 "coin": coin,
                 "exchange": exchange,
+                "quoteCurrency": quote_currency,
                 "timeRange": time_range,
                 "error": "截图失败",
             }

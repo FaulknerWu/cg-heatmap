@@ -9,4 +9,7 @@ wheels/
 # Virtual environments
 .venv
 .claude
-.actor
+
+# Added by Apify CLI
+storage
+node_modules
