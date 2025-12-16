@@ -1,0 +1,18 @@
+{
+    "actorOutputSchemaVersion": 1,
+    "title": "Coinglass Heatmap Output",
+    "description": "Screenshot of liquidation heatmap and metadata",
+    "type": "object",
+    "properties": {
+        "screenshot": {
+            "type": "string",
+            "title": "Screenshot 📸",
+            "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/screenshot.png"
+        },
+        "results": {
+            "type": "string",
+            "title": "Results",
+            "template": "{{links.apiDefaultDatasetUrl}}/items"
+        }
+    }
+}

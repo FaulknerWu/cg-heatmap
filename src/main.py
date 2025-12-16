@@ -256,6 +256,12 @@ async def main() -> None:
                 value=screenshot_data,
                 content_type="image/png",
             )
+            # 同时保存一份固定名称用于 Output tab 展示
+            await Actor.set_value(
+                key="screenshot.png",
+                value=screenshot_data,
+                content_type="image/png",
+            )
 
             # 获取公开 URL
             kvs = await Actor.open_key_value_store()
