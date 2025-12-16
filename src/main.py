@@ -3,7 +3,10 @@ Coinglass 清算热力图 Apify Actor
 使用 Playwright 截图方式获取图片
 """
 
+import re
+import time
 from datetime import datetime
+
 from apify import Actor
 from playwright.async_api import async_playwright
 
@@ -20,6 +23,56 @@ TIME_RANGE_MAP = {
     "6m": "6 month",
     "1y": "1 Year",
 }
+
+
+async def wait_for_canvas_ready(page, timeout: int = 10000, check_interval: int = 200) -> bool:
+    """
+    Wait for canvas rendering to complete by checking pixel fill ratio stability.
+
+    Args:
+        page: Playwright page object
+        timeout: Maximum wait time in milliseconds
+        check_interval: Time between checks in milliseconds
+
+    Returns:
+        True if canvas is ready, False if timeout
+    """
+    start_time = time.time()
+    last_fill_ratio = -1
+    stable_count = 0
+
+    while (time.time() - start_time) * 1000 < timeout:
+        try:
+            result = await page.evaluate(
+                """() => {
+                const canvas = document.querySelector('canvas');
+                if (!canvas || !canvas.offsetParent) return { ready: false, ratio: 0 };
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return { ready: false, ratio: 0 };
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                let nonTransparent = 0;
+                for (let i = 3; i < imageData.data.length; i += 4) {
+                    if (imageData.data[i] > 0) nonTransparent++;
+                }
+                const ratio = nonTransparent / (canvas.width * canvas.height);
+                return { ready: true, ratio: Math.round(ratio * 1000) / 1000 };
+            }"""
+            )
+
+            if result["ready"] and result["ratio"] > 0.1:
+                if abs(result["ratio"] - last_fill_ratio) < 0.01:
+                    stable_count += 1
+                    if stable_count >= 2:
+                        return True
+                else:
+                    stable_count = 0
+                last_fill_ratio = result["ratio"]
+        except Exception:
+            pass
+
+        await page.wait_for_timeout(check_interval)
+
+    return False
 
 
 async def screenshot_heatmap(
@@ -72,9 +125,11 @@ async def screenshot_heatmap(
         api_response = await response_info.value
         Actor.log.info(f"热力图 API 加载完成")
 
-        # 给 canvas 渲染时间
-        await page.wait_for_timeout(500)
-        Actor.log.info("Canvas 已就绪")
+        # 等待 canvas 渲染完成 (像素填充率稳定)
+        if await wait_for_canvas_ready(page):
+            Actor.log.info("Canvas 已就绪")
+        else:
+            Actor.log.warning("等待 Canvas 渲染超时，继续尝试截图")
 
         # 选择交易所/交易对（如果不是默认的 Binance USDT）
         if exchange != "Binance" or quote_currency != "USDT":
@@ -100,7 +155,8 @@ async def screenshot_heatmap(
 
                 await response_info.value
                 Actor.log.info(f"已选择: {pair_name}，数据加载完成")
-                await page.wait_for_timeout(500)
+                if not await wait_for_canvas_ready(page):
+                    Actor.log.warning("等待 Canvas 更新超时，继续尝试截图")
             except Exception as e:
                 Actor.log.warning(f"选择交易对失败: {e}，使用默认 Binance BTC/USDT")
 
@@ -114,8 +170,10 @@ async def screenshot_heatmap(
         if time_range != "24h":
             Actor.log.info(f"选择时间范围: {time_label}")
             try:
-                # 点击时间选择器 combobox（包含 hour 文本的那个）
-                time_selector = page.locator("[role='combobox']").filter(has_text="hour")
+                # Find the time combobox by matching text containing time units
+                time_selector = page.locator("[role='combobox']").filter(
+                    has_text=re.compile(r"(hour|day|week|month|year)", re.IGNORECASE)
+                )
                 await time_selector.click()
 
                 # 等待时间选项下拉列表出现（包含 "12 hour" 的那个 listbox）
@@ -134,8 +192,8 @@ async def screenshot_heatmap(
                 await response_info.value
                 Actor.log.info(f"已选择: {time_label}，数据加载完成")
 
-                # 给 canvas 渲染时间
-                await page.wait_for_timeout(500)
+                if not await wait_for_canvas_ready(page):
+                    Actor.log.warning("等待 Canvas 更新超时，继续尝试截图")
             except Exception as e:
                 Actor.log.warning(f"选择时间范围失败: {e}")
 
